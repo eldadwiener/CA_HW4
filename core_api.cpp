@@ -181,11 +181,19 @@ void Thread::mem_command(Instuction* Inst, unsigned time) {
 	int dst_index = Inst->dst_index;
 	int src1_index = Inst->src1_index;
 	int src2_index_imm = Inst->src2_index_imm;
+	bool isSrc2Imm = Inst->isSrc2Imm;
 	switch (opcode) {
 		case CMD_LOAD:   // dst <- Mem[src1 + src2]  (src2 may be an immediate)
-
+			uint32_t addr = (isSrc2Imm == true) ? _context.reg[src1_index] + src2_index_imm : 
+												  _context.reg[src1_index] + _context.reg[src2_index_imm];
+			SIM_MemDataRead(addr, _context.reg + dst_index);
+			_idleUntil += _latency.Load_latecny;
 			break;
 		case CMD_STORE:  // Mem[dst + src2] <- src1  (src2 may be an immediate) 		_context.reg[dst_index] = _context.reg[src1_index] - src2_index_imm;
+			uint32_t addr = (isSrc2Imm == true) ? _context.reg[dst_index] + src2_index_imm :
+												  _context.reg[dst_index] + _context.reg[src2_index_imm];
+			SIM_MemDataRead(addr, _context.reg[src1_index]);
+			_idleUntil += _latency.Store_latency;
 			break;
 	}
 	return;
