@@ -17,7 +17,7 @@ class CPU
 {
 public:
     CPU(MODE mode) : _mode(mode), _clock(0) { _switchPenalty = (mode == FINEGRAIN)? 0:Get_switch_cycles(); }
-    simReset(unsigned numThreads);
+    void simReset(unsigned numThreads);
     void run(); // TODO: should we return anything?
     double getCPI();
     void getThreadContext(tcontext* bcontext, int threadid);
@@ -125,6 +125,6 @@ Status Core_blocked_context(tcontext* bcontext,int threadid){
 }
 
 Status Core_finegrained_context(tcontext* finegrained_context,int threadid){
-    finegraincpu.getThreadContext(bcontext, threadid);
+    finegraincpu.getThreadContext(finegrained_context, threadid);
     return Success;
 }
