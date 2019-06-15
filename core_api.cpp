@@ -35,20 +35,23 @@ private:
 class Thread
 {
 public:
-    Thread(MODE mode);
+    Thread(MODE mode, unsigned Tid);
     unsigned run(unsigned curClock);
     unsigned getTotalInstructions();
     void copyContext(tcontext* dst);
-    
+
+	bool done;
+
 private:
-    void arith_command();
-    void mem_command();
+    void arith_command(Instuction* Inst);
+    void mem_command(Instuction* Inst, unsigned time);
+
     MODE _mode;
     Latency _latency;
     unsigned _idleUntil;
     tcontext _context;
     unsigned _currentInst;
-
+	unsigned _Tid;
 };
 
 
@@ -95,6 +98,100 @@ void CPU::getThreadContext(tcontext* bcontext, int threadid)
 {
     _threads[threadid].copyContext(bcontext);
 }
+
+Thread::Thread(MODE mode, unsigned Tid) : 
+	done(false), _mode(mode), _idleUntil(0), _currentInst(0), _Tid(Tid)
+{
+	//set the regs to 0
+	for (int i = 0; i < REGS; ++i) {
+		_context.reg[i] = 0;
+	}
+	//get the lantencies
+	int latencyArr[2] = { 0 };
+	Mem_latency(latencyArr);
+	_latency.Load_latecny = latencyArr[0];
+	_latency.Store_latency = latencyArr[1];
+}
+
+unsigned Thread::run(unsigned curClock) {
+	//if the thread is in idle state
+	int curRun = 0;
+	if (curClock < _idleUntil) {
+		return ++curRun;
+	}
+	//do the intructions
+	while (true) {
+		Instuction Inst;
+		SIM_MemInstRead(uint32_t _currentInst, &Inst, Tid);
+		switch (Inst.opcode) {
+			case CMD_NOP:
+				++curRun;
+				_currentInst++;
+				break;
+			case CMD_ADD:  // dst <- src1 + src2
+			case CMD_SUB:  // dst <- src1 - src2
+			case CMD_ADDI: // dst <- src1 + imm
+			case CMD_SUBI: // dst <- src1 - imm
+				arith_command(&Inst);
+				++curRun;
+				_currentInst++;
+				break;
+			case CMD_LOAD:   // dst <- Mem[src1 + src2]  (src2 may be an immediate)
+			case CMD_STORE:  // Mem[dst + src2] <- src1  (src2 may be an immediate) 
+				mem_command(&Inst, curRun + curClock);
+				++curRun;
+				_currentInst++;
+				break;
+			case CMD_HALT: //the end of these thread
+				done = true;
+				_currentInst++;
+				return ++currRun;
+		}
+		//if it's FINEGRAIN mode or the thread is in idle state 
+		if (_mode == FINEGRAIN || ((curRun + curClock) < _idleUntil)) {
+			break;
+		}
+	}
+	return curRun;
+}
+
+void Thread::arith_command(Instuction* Inst) {
+	cmd_opcode opcode = Inst->opcode;
+	int dst_index = Inst->dst_index;
+	int src1_index = Inst->src1_index;
+	int src2_index_imm = Inst->src2_index_imm;
+	switch (opcode) {
+		case CMD_ADD:  // dst <- src1 + src2
+			_context.reg[dst_index] = _context.reg[src1_index] + _context.reg[src2_index_imm];
+			break;
+		case CMD_SUB:  // dst <- src1 - src2
+			_context.reg[dst_index] = _context.reg[src1_index] - _context.reg[src2_index_imm];
+			break;
+		case CMD_ADDI: // dst <- src1 + imm
+			_context.reg[dst_index] = _context.reg[src1_index] + src2_index_imm;
+			break;
+		case CMD_SUBI: // dst <- src1 - imm
+			_context.reg[dst_index] = _context.reg[src1_index] - src2_index_imm;
+			break;
+	}
+	return;
+}
+
+void Thread::mem_command(Instuction* Inst, unsigned time) {
+	cmd_opcode opcode = Inst->opcode;
+	int dst_index = Inst->dst_index;
+	int src1_index = Inst->src1_index;
+	int src2_index_imm = Inst->src2_index_imm;
+	switch (opcode) {
+		case CMD_LOAD:   // dst <- Mem[src1 + src2]  (src2 may be an immediate)
+
+			break;
+		case CMD_STORE:  // Mem[dst + src2] <- src1  (src2 may be an immediate) 		_context.reg[dst_index] = _context.reg[src1_index] - src2_index_imm;
+			break;
+	}
+	return;
+}
+
 
 Status Core_blocked_Multithreading(){
     // reset the blocked simulation and rerun it
