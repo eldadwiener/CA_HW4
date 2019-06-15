@@ -122,7 +122,7 @@ unsigned Thread::run(unsigned curClock) {
 	//do the intructions
 	while (true) {
 		Instuction Inst;
-		SIM_MemInstRead(uint32_t _currentInst, &Inst, Tid);
+		SIM_MemInstRead(_currentInst, &Inst, _Tid);
 		switch (Inst.opcode) {
 			case CMD_NOP:
 				++curRun;
@@ -145,7 +145,7 @@ unsigned Thread::run(unsigned curClock) {
 			case CMD_HALT: //the end of these thread
 				done = true;
 				_currentInst++;
-				return ++currRun;
+				return ++curRun;
 		}
 		//if it's FINEGRAIN mode or the thread is in idle state 
 		if (_mode == FINEGRAIN || ((curRun + curClock) < _idleUntil)) {
