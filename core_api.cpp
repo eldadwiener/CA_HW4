@@ -39,8 +39,7 @@ public:
     unsigned run(unsigned curClock);
     unsigned getTotalInstructions();
     void copyContext(tcontext* dst);
-
-	bool done;
+    bool done;
 
 private:
     void arith_command(Instuction* Inst);
@@ -192,6 +191,17 @@ void Thread::mem_command(Instuction* Inst, unsigned time) {
 	return;
 }
 
+unsigned Thread::getTotalInstructions()
+{
+    return _currentInst;
+}
+
+
+void Thread::copyContext(tcontext* dst)
+{
+    for(int i=0; i < REGS; ++i)
+        dst->reg[i] = _context.reg[i];
+}
 
 Status Core_blocked_Multithreading(){
     // reset the blocked simulation and rerun it
