@@ -11,10 +11,8 @@ int main(int argc, char const *argv[]){
 	        exit(2);
 	    }
 	int threads = Get_thread_number();
-	//tcontext blocked[threads];
-	//tcontext finegrained[threads];
-    tcontext* blocked = (tcontext*)malloc(sizeof(tcontext)*threads);
-    tcontext* finegrained = (tcontext*)malloc(sizeof(tcontext)*threads);
+	tcontext blocked[threads];
+	tcontext finegrained[threads];
 	for(int k=0; k < Get_thread_number(); k++){
 	    for (int i = 0; i < REGS; ++i){
 	        finegrained[k].reg[i]=0;
@@ -41,8 +39,6 @@ int main(int argc, char const *argv[]){
 	}
 	printf("\nFinegrained Multithreading CPI for this program %lf\n", Core_finegrained_CPI());
 	SIM_MemFree();
-    free(blocked);
-    free(finegrained);
 	return 0;
 }
 
