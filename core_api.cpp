@@ -11,6 +11,7 @@ using namespace std;
 
 typedef enum MODE {BLOCKED, FINEGRAIN} MODE;
 
+// each thread is represented by this class, will run commands until it is blocked.
 class Thread
 {
 public:
@@ -34,12 +35,13 @@ private:
 };
 
 
+// main entity, will call threads to run in RR order, and keep track of the system clock
 class CPU
 {
 public:
     CPU(MODE mode) : _mode(mode), _clock(0) {}
     void simReset(unsigned numThreads);
-    void run(); // TODO: should we return anything?
+    void run();
     double getCPI();
     void getThreadContext(tcontext* bcontext, int threadid);
 
@@ -58,6 +60,7 @@ CPU blockedcpu(BLOCKED), finegraincpu(FINEGRAIN);
 
 void CPU::run()
 {
+    // keep calling threads to run in RR until all are done
     while (!_liveThreads.empty())
     {
         unsigned curThread = _liveThreads.front();
@@ -67,7 +70,7 @@ void CPU::run()
         _clock += clocksRan;
         if (!_liveThreads.empty())
             _clock += _switchPenalty; // need to switch to another thread.
-        if (_threads[curThread].done == false)
+        if (_threads[curThread].done == false) // if thread is not done, but just did mem instruction, add to end of the run queue
             _liveThreads.push_back(curThread);
     }
 }
@@ -88,6 +91,7 @@ void CPU::simReset(unsigned numThreads)
      _switchPenalty = (_mode == FINEGRAIN)? 0:Get_switch_cycles();
 }
 
+// calculate CPI after running the simulation
 double CPU::getCPI()
 {
     unsigned totalInsts = 0;
@@ -108,27 +112,30 @@ Thread::Thread(MODE mode, unsigned Tid) :
 	for (int i = 0; i < REGS; ++i) {
 		_context.reg[i] = 0;
 	}
-	//get the lantencies
+	//get the latencies
 	int latencyArr[2] = { 0 };
 	Mem_latency(latencyArr);
 	_latency.Load_latecny = latencyArr[0];
 	_latency.Store_latency = latencyArr[1];
 }
 
+// called when its this thread's turn to run
 unsigned Thread::run(unsigned curClock) {
     //if the thread is in idle state
     int curRun = 0;
+    // thread is still waiting for mem operation, go back to idle
     if (_idleUntil != 0 && curClock < _idleUntil) {
             return ++curRun;
     }
     //do the intructions
     while (true) {
         Instuction Inst;
-        //bool needSwitch = false;
+        // check if we are back after waiting for mem operation
         if (_waitingMem) {
             _waitingMem = false;
             ++curRun;
         }
+        // otherwise, perform new instruction
         else
         {
             SIM_MemInstRead(_currentInst, &Inst, _Tid);
@@ -150,7 +157,6 @@ unsigned Thread::run(unsigned curClock) {
                     mem_command(&Inst, curRun + curClock);
                     ++curRun;
                     _currentInst++;
-                    //needSwitch = true;
                     _waitingMem =  true;
                     break;
                 case CMD_HALT: //the end of these thread
@@ -164,9 +170,11 @@ unsigned Thread::run(unsigned curClock) {
             break;
         }
     }
+    // tell cpu object how long we ran so it can update the clock
     return curRun;
 }
 
+// called to run arithmatic command
 void Thread::arith_command(Instuction* Inst) {
 	cmd_opcode opcode = Inst->opcode;
 	int dst_index = Inst->dst_index;
@@ -189,6 +197,7 @@ void Thread::arith_command(Instuction* Inst) {
 	return;
 }
 
+// called to run memory command
 void Thread::mem_command(Instuction* Inst, unsigned time) {
     cmd_opcode opcode = Inst->opcode;
     int dst_index = Inst->dst_index;
