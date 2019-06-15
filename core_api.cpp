@@ -11,27 +11,6 @@ using namespace std;
 
 typedef enum MODE {BLOCKED, FINEGRAIN} MODE;
 
-CPU blockedcpu(BLOCKED), finegraincpu(FINEGRAIN);
-
-class CPU
-{
-public:
-    CPU(MODE mode) : _mode(mode), _clock(0) { _switchPenalty = (mode == FINEGRAIN)? 0:Get_switch_cycles(); }
-    void simReset(unsigned numThreads);
-    void run(); // TODO: should we return anything?
-    double getCPI();
-    void getThreadContext(tcontext* bcontext, int threadid);
-
-private:
-    unsigned _numThreads;
-    MODE _mode;
-    unsigned _clock;
-    unsigned _switchPenalty;
-    vector<Thread> _threads;
-    list<unsigned> _liveThreads;
-
-};
-
 class Thread
 {
 public:
@@ -54,6 +33,26 @@ private:
 };
 
 
+class CPU
+{
+public:
+    CPU(MODE mode) : _mode(mode), _clock(0) { _switchPenalty = (mode == FINEGRAIN)? 0:Get_switch_cycles(); }
+    void simReset(unsigned numThreads);
+    void run(); // TODO: should we return anything?
+    double getCPI();
+    void getThreadContext(tcontext* bcontext, int threadid);
+
+private:
+    unsigned _numThreads;
+    MODE _mode;
+    unsigned _clock;
+    unsigned _switchPenalty;
+    vector<Thread> _threads;
+    list<unsigned> _liveThreads;
+
+};
+
+CPU blockedcpu(BLOCKED), finegraincpu(FINEGRAIN);
 
 
 void CPU::run()
@@ -182,17 +181,18 @@ void Thread::mem_command(Instuction* Inst, unsigned time) {
 	int src1_index = Inst->src1_index;
 	int src2_index_imm = Inst->src2_index_imm;
 	bool isSrc2Imm = Inst->isSrc2Imm;
+    uint32_t addr;
 	switch (opcode) {
 		case CMD_LOAD:   // dst <- Mem[src1 + src2]  (src2 may be an immediate)
-			uint32_t addr = (isSrc2Imm == true) ? _context.reg[src1_index] + src2_index_imm : 
+			 addr = (isSrc2Imm == true) ? _context.reg[src1_index] + src2_index_imm : 
 												  _context.reg[src1_index] + _context.reg[src2_index_imm];
 			SIM_MemDataRead(addr, _context.reg + dst_index);
 			_idleUntil += _latency.Load_latecny;
 			break;
 		case CMD_STORE:  // Mem[dst + src2] <- src1  (src2 may be an immediate) 		_context.reg[dst_index] = _context.reg[src1_index] - src2_index_imm;
-			uint32_t addr = (isSrc2Imm == true) ? _context.reg[dst_index] + src2_index_imm :
+			addr = (isSrc2Imm == true) ? _context.reg[dst_index] + src2_index_imm :
 												  _context.reg[dst_index] + _context.reg[src2_index_imm];
-			SIM_MemDataRead(addr, _context.reg[src1_index]);
+			SIM_MemDataWrite(addr, _context.reg[src1_index]);
 			_idleUntil += _latency.Store_latency;
 			break;
 	}
@@ -228,10 +228,10 @@ Status Core_fineGrained_Multithreading(){
 
 
 double Core_finegrained_CPI(){
-    return finegraincpu.get_cpi();
+    return finegraincpu.getCPI();
 }
 double Core_blocked_CPI(){
-    return blockedcpu.get_cpi();
+    return blockedcpu.getCPI();
 }
 
 Status Core_blocked_context(tcontext* bcontext,int threadid){
