@@ -11,8 +11,8 @@ int main(int argc, char const *argv[]){
 	        exit(2);
 	    }
 	int threads = Get_thread_number();
-	tcontext blocked[threads];
-	tcontext finegrained[threads];
+	tcontext blocked[4];
+	tcontext finegrained[4];
 	for(int k=0; k < Get_thread_number(); k++){
 	    for (int i = 0; i < REGS; ++i){
 	        finegrained[k].reg[i]=0;
@@ -22,7 +22,7 @@ int main(int argc, char const *argv[]){
 	Core_blocked_Multithreading();
 	printf("\n----Blocked Simulation -------\n");
 	for(int k=0; k < Get_thread_number(); k++){
-		Core_blocked_context(blocked,k);
+		Core_blocked_context(blocked+k,k);
 	    printf("\nRegister file thread id %d:\n",k);
 	    for (int i = 0; i < REGS; ++i)
 	        printf("\tR%d = 0x%X", i, blocked[k].reg[i]);
@@ -32,7 +32,7 @@ int main(int argc, char const *argv[]){
 	Core_fineGrained_Multithreading();
 	printf("\n-----Finegrained Simulation -----\n");
 	for(int k=0; k < Get_thread_number(); k++){
-		Core_finegrained_context(finegrained,k);
+		Core_finegrained_context(finegrained+k,k);
 	    printf("\nRegister file thread id %d:\n",k);
 	    for (int i = 0; i < REGS; ++i)
 	        printf("\tR%d = 0x%X", i, finegrained[k].reg[i]);
