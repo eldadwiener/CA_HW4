@@ -30,7 +30,7 @@ private:
     tcontext _context;
     unsigned _currentInst;
     unsigned _Tid;
-    bool _waitingLoad;
+    bool _waitingMem;
 };
 
 
@@ -58,17 +58,17 @@ CPU blockedcpu(BLOCKED), finegraincpu(FINEGRAIN);
 
 void CPU::run()
 {
-    while( !_liveThreads.empty() )
+    while (!_liveThreads.empty())
     {
         unsigned curThread = _liveThreads.front();
         _liveThreads.pop_front(); // after iteration we will push it to the back if not done
         unsigned clocksRan = _threads[curThread].run(_clock); // run the thread until it goes to idle or 1 clock if we are in finegrain
         assert(clocksRan > 0);
         _clock += clocksRan;
-        if(_threads[curThread].done == false)
-            _liveThreads.push_back(curThread);
-        if(!_liveThreads.empty() )
+        if (!_liveThreads.empty())
             _clock += _switchPenalty; // need to switch to another thread.
+        if (_threads[curThread].done == false)
+            _liveThreads.push_back(curThread);
     }
 }
 
@@ -102,7 +102,7 @@ void CPU::getThreadContext(tcontext* bcontext, int threadid)
 }
 
 Thread::Thread(MODE mode, unsigned Tid) : 
-	done(false), _mode(mode), _idleUntil(0), _currentInst(0), _Tid(Tid), _waitingLoad(false)
+	done(false), _mode(mode), _idleUntil(0), _currentInst(0), _Tid(Tid), _waitingMem(false)
 {
 	//set the regs to 0
 	for (int i = 0; i < REGS; ++i) {
@@ -124,9 +124,9 @@ unsigned Thread::run(unsigned curClock) {
     //do the intructions
     while (true) {
         Instuction Inst;
-        bool needSwitch = false;
-        if (_waitingLoad) {
-            _waitingLoad = false;
+        //bool needSwitch = false;
+        if (_waitingMem) {
+            _waitingMem = false;
             ++curRun;
         }
         else
@@ -141,16 +141,17 @@ unsigned Thread::run(unsigned curClock) {
                 case CMD_SUB:  // dst <- src1 - src2
                 case CMD_ADDI: // dst <- src1 + imm
                 case CMD_SUBI: // dst <- src1 - imm
-                    ++curRun;
                     arith_command(&Inst);
+                    ++curRun;
                     _currentInst++;
                     break;
                 case CMD_LOAD:   // dst <- Mem[src1 + src2]  (src2 may be an immediate)
                 case CMD_STORE:  // Mem[dst + src2] <- src1  (src2 may be an immediate) 
-                    ++curRun;
                     mem_command(&Inst, curRun + curClock);
+                    ++curRun;
                     _currentInst++;
-                    needSwitch = true;
+                    //needSwitch = true;
+                    _waitingMem =  true;
                     break;
                 case CMD_HALT: //the end of these thread
                     done = true;
@@ -159,7 +160,7 @@ unsigned Thread::run(unsigned curClock) {
             }
         }
         //if it's FINEGRAIN mode or the thread is in idle state 
-        if (_mode == FINEGRAIN || needSwitch ) {
+        if (_mode == FINEGRAIN || _waitingMem ) {
             break;
         }
     }
@@ -201,7 +202,6 @@ void Thread::mem_command(Instuction* Inst, unsigned time) {
                                           _context.reg[src1_index] + _context.reg[src2_index_imm];
             SIM_MemDataRead(addr, _context.reg + dst_index);
             _idleUntil = time + _latency.Load_latecny;
-            _waitingLoad =  true;
             break;
         case CMD_STORE:  // Mem[dst + src2] <- src1  (src2 may be an immediate) 		_context.reg[dst_index] = _context.reg[src1_index] - src2_index_imm;
             addr = (isSrc2Imm == true) ? _context.reg[dst_index] + src2_index_imm :
@@ -249,11 +249,11 @@ double Core_blocked_CPI(){
 }
 
 Status Core_blocked_context(tcontext* bcontext,int threadid){
-    blockedcpu.getThreadContext(bcontext, threadid);
+    blockedcpu.getThreadContext(&bcontext[threadid], threadid);
     return Success;
 }
 
 Status Core_finegrained_context(tcontext* finegrained_context,int threadid){
-    finegraincpu.getThreadContext(finegrained_context, threadid);
+    finegraincpu.getThreadContext(&finegrained_context[threadid], threadid);
     return Success;
 }
